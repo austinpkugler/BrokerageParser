@@ -106,6 +106,10 @@ def parse_trade_lines(lines: list, brokerage_mapping: dict) -> list:
     for line in lines:
         if len(trades) != 0:
             line = line.lower()
+
+        # Special case for Schwab ACAT cash transfer and transfer fees
+        if 'acat' in line:
+            continue
         if len(trades) != 0 and not any(action in line for action in get_trade_actions(brokerage_mapping)):
             continue
         trades.append(line)
@@ -166,6 +170,7 @@ def parse_trades(filepath: str, brokerage_mapping: dict) -> pd.DataFrame:
         symbol = row[brokerage_mapping[brokerage]['columns']['symbol']].upper()
         if symbol == '':
             symbol = 'UNKNOWN'
+            print(row)
 
         description = row[brokerage_mapping[brokerage]['columns']['description']]
         trades.append([date, action, symbol, abs(quantity), abs(amount), abs(fees), description])
