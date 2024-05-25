@@ -164,6 +164,8 @@ def parse_trades(filepath: str, brokerage_mapping: dict) -> pd.DataFrame:
 
         # Handle symbol changes
         symbol = row[brokerage_mapping[brokerage]['columns']['symbol']].upper()
+        if symbol == '':
+            symbol = 'UNKNOWN'
 
         description = row[brokerage_mapping[brokerage]['columns']['description']]
         trades.append([date, action, symbol, abs(quantity), abs(amount), abs(fees), description])
@@ -173,10 +175,43 @@ def parse_trades(filepath: str, brokerage_mapping: dict) -> pd.DataFrame:
     return trades_df
 
 
+def save_trades(trades_df: pd.DataFrame, filepath: str = 'trades.csv') -> None:
+    trades_df.to_csv(filepath, index=False)
+
+
+def calculate_holdings(trades_df: pd.DataFrame) -> pd.DataFrame:
+    open_df = trades_df[trades_df['action'] == 'open']
+    close_df = trades_df[trades_df['action'] == 'close']
+    open_quantities = open_df.groupby('symbol')['quantity'].sum()
+    close_quantities = close_df.groupby('symbol')['quantity'].sum()
+    holdings = open_quantities.subtract(close_quantities, fill_value=0)
+
+    # Drop zero quantity holdings
+    holdings = holdings[holdings != 0]
+
+    # Make the series a dataframe
+    holdings = holdings.reset_index()
+    holdings.columns = ['symbol', 'quantity']
+
+    return holdings
+
+
+def calculate_pl(trades_df: pd.DataFrame) -> pd.DataFrame:
+    total_open_amount = trades_df[trades_df['action'] == 'open']['amount'].sum()
+    total_close_amount = trades_df[trades_df['action'] == 'close']['amount'].sum()
+    pl = total_close_amount - total_open_amount
+    return pl
+
+
 if __name__ == '__main__':
     DIRECTORY = 'exports/'
     filepaths = list_csvs(DIRECTORY)
     trades = pd.DataFrame(columns=['date', 'action', 'symbol', 'quantity', 'amount', 'fees', 'description'])
     for filepath in filepaths:
         trades = pd.concat([trades, parse_trades(filepath, BROKERAGES)])
-    trades.to_csv('trades.csv', index=False)
+    save_trades(trades)
+    print('Saved trades to trades.csv')
+
+    print('Your current holdings are:')
+    holdings = calculate_holdings(trades)
+    print(holdings)
