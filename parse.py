@@ -19,7 +19,8 @@ BROKERAGES = {
         },
         "actions": {
             "open": ["Buy", "Reinvest Shares", "Security Transfer"],
-            "close": ["Sell", "Security Transfer"]
+            "close": ["Sell", "Security Transfer"],
+            "dividend": ["Qualified Dividend", "Non-Qualified Div"]
         }
     },
     "fidelity": {
@@ -34,7 +35,8 @@ BROKERAGES = {
         },
         "actions": {
             "open": ["BOUGHT", "REINVESTMENT"],
-            "close": ["SOLD"]
+            "close": ["SOLD"],
+            "dividend": ["DIVIDEND RECEIVED"]
         }
     }
 }
@@ -57,7 +59,7 @@ def amount_to_float(amount: str) -> float:
     return float(re.sub(r'[\$,]', '', amount))
 
 
-def get_trade_actions(brokerage_mapping) -> list:
+def get_trade_actions(brokerage_mapping: dict) -> list:
     actions = []
     for brokerage in brokerage_mapping.values():
         for action_list in brokerage['actions'].values():
@@ -65,21 +67,28 @@ def get_trade_actions(brokerage_mapping) -> list:
     return actions
 
 
-def get_trade_open_actions(brokerage_mapping) -> list:
+def get_trade_open_actions(brokerage_mapping: dict) -> list:
     actions = []
     for brokerage in brokerage_mapping.values():
         actions.extend([action.lower() for action in brokerage['actions']['open']])
     return actions
 
 
-def get_trade_close_actions(brokerage_mapping) -> list:
+def get_trade_close_actions(brokerage_mapping: dict) -> list:
     actions = []
     for brokerage in brokerage_mapping.values():
         actions.extend([action.lower() for action in brokerage['actions']['close']])
     return actions
 
 
-def list_csvs(dir):
+def get_dividend_actions(brokerage_mapping: dict) -> list:
+    actions = []
+    for brokerage in brokerage_mapping.values():
+        actions.extend([action.lower() for action in brokerage['actions']['dividend']])
+    return actions
+
+
+def list_csvs(dir: str) -> list:
         return [os.path.join(root, file) for root, dirs, files in os.walk(dir) for file in files if file.endswith('.csv')]
 
 
@@ -144,7 +153,7 @@ def parse_trades(filepath: str, brokerage_mapping: dict) -> pd.DataFrame:
         fees = amount_to_float(row[brokerage_mapping[brokerage]['columns']['fees']])
 
         # Convert date to ISO 8601 format
-        date = row[brokerage_mapping[brokerage]['columns']['date']]
+        date = row[brokerage_mapping[brokerage]['columns']['date']].split(' ')[0]
         if brokerage == 'schwab':
             date = datetime.strptime(date, '%m/%d/%Y').strftime('%Y-%m-%d')
         elif brokerage == 'fidelity':
@@ -165,6 +174,8 @@ def parse_trades(filepath: str, brokerage_mapping: dict) -> pd.DataFrame:
             action = 'open'
         elif any(a in action for a in get_trade_close_actions(brokerage_mapping)):
             action = 'close'
+        elif any(a in action for a in get_dividend_actions(brokerage_mapping)):
+            action = 'dividend'
 
         # Handle symbol changes
         symbol = row[brokerage_mapping[brokerage]['columns']['symbol']].upper()
@@ -208,6 +219,11 @@ def calculate_pl(trades_df: pd.DataFrame) -> pd.DataFrame:
     return pl
 
 
+def sum_dividends(trades_df: pd.DataFrame) -> pd.DataFrame:
+    dividends = trades_df[trades_df['action'] == 'dividend']['amount'].sum()
+    return dividends
+
+
 if __name__ == '__main__':
     DIRECTORY = 'exports/'
     filepaths = list_csvs(DIRECTORY)
@@ -220,3 +236,4 @@ if __name__ == '__main__':
     print('Your current holdings are:')
     holdings = calculate_holdings(trades)
     print(holdings)
+    print(f'You\'ve earned ${sum_dividends(trades)} in dividends')
