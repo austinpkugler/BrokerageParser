@@ -43,14 +43,14 @@ BROKERAGES = {
 
 
 def determine_brokerage(file_path: str, brokerage_mapping: dict) -> str:
-        with open(file_path, 'r') as file:
-            file_content = file.read().lower()
+    with open(file_path, 'r') as file:
+        file_content = file.read().lower()
 
-        for brokerage in brokerage_mapping.keys():
-            if brokerage in file_path.lower() or brokerage in file_content:
-                return brokerage
+    for brokerage in brokerage_mapping.keys():
+        if brokerage in file_path.lower() or brokerage in file_content:
+            return brokerage
 
-        raise ValueError(f'Brokerage not supported: {file_path}')
+    raise ValueError(f'Brokerage not supported: {file_path}')
 
 
 def amount_to_float(amount: str) -> float:
@@ -157,7 +157,10 @@ def parse_trades(filepath: str, brokerage_mapping: dict) -> pd.DataFrame:
         if brokerage == 'schwab':
             date = datetime.strptime(date, '%m/%d/%Y').strftime('%Y-%m-%d')
         elif brokerage == 'fidelity':
-            date = datetime.strptime(date, '%b-%d-%Y').strftime('%Y-%m-%d')
+            try:
+                date = datetime.strptime(date, '%b-%d-%Y').strftime('%Y-%m-%d')
+            except:
+                date = datetime.strptime(date, '%m/%d/%Y').strftime('%Y-%m-%d')
 
         # Determine action
         action = row[brokerage_mapping[brokerage]['columns']['action']]
@@ -229,7 +232,10 @@ if __name__ == '__main__':
     filepaths = list_csvs(DIRECTORY)
     trades = pd.DataFrame(columns=['date', 'action', 'symbol', 'quantity', 'amount', 'fees', 'description'])
     for filepath in filepaths:
-        trades = pd.concat([trades, parse_trades(filepath, BROKERAGES)])
+        try:
+            trades = pd.concat([trades, parse_trades(filepath, BROKERAGES)])
+        except Exception as e:
+            print(f'Failed to parse {filepath}, {e}')
     save_trades(trades)
     print('Saved trades to trades.csv')
 

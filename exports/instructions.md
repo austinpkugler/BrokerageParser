@@ -1,1 +1,1 @@
-Place your csv exports from a support brokerage in this directory.
+Place csv exports here.
