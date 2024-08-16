@@ -194,7 +194,7 @@ def parse_trades(filepath: str, brokerage_mapping: dict) -> pd.DataFrame:
     return trades_df
 
 
-def save_trades(trades_df: pd.DataFrame, filepath: str = 'trades.csv') -> None:
+def save_csv(trades_df: pd.DataFrame, filepath: str) -> None:
     trades_df.to_csv(filepath, index=False)
 
 
@@ -211,8 +211,8 @@ def calculate_holdings(trades_df: pd.DataFrame) -> pd.DataFrame:
     # Make the series a dataframe
     holdings = holdings.reset_index()
     holdings.columns = ['symbol', 'quantity']
-
-    return holdings
+    holdings_filtered = holdings[holdings['quantity'] >= 0.0001]
+    return holdings_filtered
 
 
 def calculate_pl(trades_df: pd.DataFrame) -> pd.DataFrame:
@@ -236,10 +236,11 @@ if __name__ == '__main__':
             trades = pd.concat([trades, parse_trades(filepath, BROKERAGES)])
         except Exception as e:
             print(f'Failed to parse {filepath}, {e}')
-    save_trades(trades)
+    save_csv(trades, 'trades.csv')
     print('Saved trades to trades.csv')
 
     print('Your current holdings are:')
     holdings = calculate_holdings(trades)
     print(holdings)
+    save_csv(holdings, 'holdings.csv')
     print(f'You\'ve earned ${sum_dividends(trades)} in dividends')
